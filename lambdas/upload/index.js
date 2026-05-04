@@ -1,41 +1,41 @@
-const {S3Client, PutObjectCommand} = require('@aws-sdk/client-s3');
-const {v4: uuidv4} = require("uuid");
-const busboy = require("busboy"); 
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { v4: uuidv4 } = require("uuid");
+const busboy = require("busboy");
 
 const s3 = new S3Client({});
-const allowed_types = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/gif": "gif",
-    "image/webp": "webp"
+
+const ALLOWED_TYPES = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
 };
 
 exports.handler = async (event) => {
-    const contentType = event.headers["content-type"] || "";
+  const contentType = event.headers["content-type"] || "";
 
-    let buffer;
-    let mimetype;
+  let buffer;
+  let mimetype;
 
-    if (contentType.includes("multipart/form-data")) {
-        const result = await parseMultipart(event);
-        buffer = result.buffer;
-        mimetype = result.mimetype;
-    } else {
-        const body = JSON.parse(event.body);
-        mimetype = body.mimetype;
-        buffer = buffer.from(body.data, "base64");
-    }
-}
+  if (contentType.includes("multipart/form-data")) {
+    const result = await parseMultipart(event);
+    buffer = result.buffer;
+    mimetype = result.mimetype;
+  } else {
+    const body = JSON.parse(event.body);
+    mimetype = body.mimetype;
+    buffer = Buffer.from(body.data, "base64");
+  }
 
-if (!allowed_types[mimetype]) {
-    return {statuscode:400, body:json.stringify({error: "Tipo no permitido u.u"})};
-}
+  if (!ALLOWED_TYPES[mimetype]) {
+    return { statusCode: 400, body: JSON.stringify({ error: "Tipo no permitido" }) };
+  }
 
-if (buffer.byteLength > 10 * 1024 * 1024) {
-    return {statuscode:400, body:json.stringify({error: "Imagen mayor a 10 mb -.-"})};
-}
+  if (buffer.byteLength > 10 * 1024 * 1024) {
+    return { statusCode: 400, body: JSON.stringify({ error: "Imagen mayor a 10 MB" }) };
+  }
 
-const key = `${process.env.UPLOAD_PREFIX}/${uuidv4()}.${ALLOWED_TYPES[mimetype]}`;
+  const key = `${process.env.UPLOAD_PREFIX}/${uuidv4()}.${ALLOWED_TYPES[mimetype]}`;
 
   await s3.send(new PutObjectCommand({
     Bucket: process.env.S3_BUCKET,
@@ -45,6 +45,7 @@ const key = `${process.env.UPLOAD_PREFIX}/${uuidv4()}.${ALLOWED_TYPES[mimetype]}
   }));
 
   return { statusCode: 200, body: JSON.stringify({ key }) };
+};
 
 const parseMultipart = (event) => {
   return new Promise((resolve, reject) => {
